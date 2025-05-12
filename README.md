@@ -58,6 +58,16 @@ python main.py --c ExtremeC3Net.json
 python main.py --c SINet.json
 ```
  
+ ## Run with docker compose
+```shell
+docker compose build
+docker compose run ext_portrait_segmentation
+```
+And then run the following command in the container.
+```shell
+python main.py --c SINet.json
+```
+Make sure to put the dataset in the Link512DATA folder in the root of the preject.
 
 
 ## Additonal Dataset

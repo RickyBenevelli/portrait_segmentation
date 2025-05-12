@@ -311,7 +311,7 @@ class ToTensor(object):
         image = image.transpose((2,0,1))
 
         image_tensor = torch.from_numpy(image).div(255)
-        label_tensor = torch.LongTensor(np.array(label, dtype=np.int)).div(255) #torch.from_numpy(label)
+        label_tensor = torch.LongTensor(np.array(label, dtype=int)).div(255) #torch.from_numpy(label)
 
         return [image_tensor, label_tensor]
 

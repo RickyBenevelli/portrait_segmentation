@@ -35,7 +35,7 @@ class Logger:
         self.use_tensorboard = True if TENSORBOARD and log_dir is not None else False
 
         if not use_nsml and self.use_tensorboard:
-            self.writer = tf.summary.FileWriter(log_dir)
+            self.writer = tf.summary.create_file_writer(log_dir)
 
     def scalar_summary(self, tag, value, step):
         if self.use_nsml:
@@ -46,8 +46,9 @@ class Logger:
                 self.last = {'step': step, 'iter': step, 'epoch': 1}
             self.last[tag] = value
         elif self.use_tensorboard:
-            summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
-            self.writer.add_summary(summary, step)
+            with self.writer.as_default():
+                tf.summary.scalar(tag, value, step=step)
+                self.writer.flush()
 
     def image_summary(self, data, opts):
         if self.use_visdom:

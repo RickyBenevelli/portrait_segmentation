@@ -1,0 +1,13 @@
+services:
+  ext_portrait_segmentation:
+    image: ext_portrait_segmentation
+    build:
+      context: .
+      dockerfile: Dockerfile
+    #runtime: nvidia
+    ipc: host
+    volumes:
+      - .:/app
+    stdin_open: true 
+    tty: true      
+    command: /bin/bash

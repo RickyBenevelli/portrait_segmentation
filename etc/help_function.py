@@ -33,17 +33,17 @@ def val_edge(num_gpu, val_loader, model, criterion, lovasz, vis=False):
             target = target.cuda()
             edge_target = edge_target.cuda()
 
-            with torch.no_grad():
-                input_var, target_var, edge_target_var \
-                    = torch.autograd.Variable(input), torch.autograd.Variable(target), \
-                      torch.autograd.Variable(edge_target)
+        with torch.no_grad():
+            input_var, target_var, edge_target_var \
+                = torch.autograd.Variable(input), torch.autograd.Variable(target), \
+                    torch.autograd.Variable(edge_target)
 
-                # run the mdoel
-                output = model(input_var)
+            # run the mdoel
+            output = model(input_var)
 
-                # compute the loss
-                loss = criterion(output, target_var)
-                lossE = 0.5*criterion(output, edge_target_var)
+            # compute the loss
+            loss = criterion(output, target_var)
+            lossE = 0.5*criterion(output, edge_target_var)
 
         epoch_loss.append(loss.item())
         epoch_lossE.append(lossE.item())
@@ -110,7 +110,7 @@ def train_edge(num_gpu, train_loader, model, criterion, optimizer, lovasz, epoch
         target_var = torch.autograd.Variable(target)
         edge_target_var = torch.autograd.Variable(edge_target)
 
-        # run the mdoel
+        # run the model
         output = model(input_var)
 
         # set the grad to zero

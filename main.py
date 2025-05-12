@@ -22,6 +22,7 @@ from data.dataloader import get_dataloader
 import models
 from etc.help_function import *
 from etc.utils import *
+from tqdm import tqdm
 from etc.Visualize_video import ExportVideo
 from etc.flops_counter import add_flops_counting_methods, flops_to_string, get_model_parameters_number
 
@@ -218,7 +219,7 @@ if __name__ == '__main__':
     ################################ start Enc train ##########################################
 
         print("========== Stage 1 TRAINING ===========")
-        for epoch in range(start_epoch, train_config["epochs"]):
+        for epoch in tqdm(range(start_epoch, train_config["epochs"]), desc="Stage1 Training"):
             if args.lrsch == "poly":
                 scheduler.step(epoch)  ## scheduler 2
             elif args.lrsch == "warmpoly":
@@ -460,7 +461,7 @@ if __name__ == '__main__':
     print("========== DECODER TRAINING ===========")
 
         # When loading encoder reinitialize weights for decoder because they are set to 0 when training dec
-    for epoch in range(start_epoch, train_config["epochs"]):
+    for epoch in tqdm(range(start_epoch, train_config["epochs"]), desc="Decoder Training"):
         if args.lrsch == "poly":
             scheduler.step(epoch)  ## scheduler 2
         elif args.lrsch == "warmpoly":
