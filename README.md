@@ -65,7 +65,7 @@ docker compose run ext_portrait_segmentation
 ```
 And then run the following command in the container.
 ```shell
-python main.py --c SINet.json
+python main.py --c ./setting/SINet.json
 ```
 Make sure to put the dataset in the Link512DATA folder in the root of the preject.
 
