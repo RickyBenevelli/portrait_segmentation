@@ -7,7 +7,7 @@
         "p" : 2,
         "q" : 8,
         "chnn" : 1,
-        "epochs": 300,
+        "epochs": 5,
         "dnc_batch" : 24,
         "loss" : "Lovasz",
 

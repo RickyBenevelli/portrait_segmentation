@@ -47,7 +47,7 @@ class CBR(nn.Module):
         padding = int((kSize - 1) / 2)
 
         self.conv = nn.Conv2d(nIn, nOut, (kSize, kSize), stride=stride, padding=(padding, padding), bias=False)
-        self.bn = nn.BatchNorm2d(nOut, eps=1e-03, momentum= BN_moment)
+        self.bn = nn.BatchNorm2d(nOut, eps=1e-03, momentum=BN_moment)
         self.act = nn.PReLU(nOut)
 
     def forward(self, input):
@@ -166,7 +166,7 @@ class BR(nn.Module):
         :param nOut: output feature maps
         '''
         super().__init__()
-        self.bn = nn.BatchNorm2d(nOut, eps=1e-03, momentum= BN_moment)
+        self.bn = nn.BatchNorm2d(nOut, eps=1e-03, momentum=BN_moment)
         self.act = nn.PReLU(nOut)
 
     def forward(self, input):
@@ -212,9 +212,8 @@ class C(nn.Module):
     This class is for a convolutional layer.
     '''
 
-    def __init__(self, nIn, nOut, kSize, stride=1,group=1):
+    def __init__(self, nIn, nOut, kSize, stride=1, group=1):
         '''
-
         :param nIn: number of input channels
         :param nOut: number of output channels
         :param kSize: kernel size
@@ -422,6 +421,8 @@ class SINet_Encoder(nn.Module):
 
 
         output2_0 = self.level2_0(output1)  # 4h 4w
+        # print("[DEBUG][SINet]", output1.shape, output2_0.shape)
+        # torch.Size([36, 12, 112, 112]) torch.Size([36, 16, 56, 56])
 
         # print(str(output1_0.size()))
         for i, layer in enumerate(self.level2):
@@ -443,6 +444,9 @@ class SINet_Encoder(nn.Module):
         output3_cat = self.BR3(torch.cat([output3_0, output3], 1))
 
         classifier = self.classifier(output3_cat)
+        #print("[DEBUG][SINet]", output3_cat.shape, classifier.shape)
+        # output3_cat = torch.Size([36, 144, 28, 28]) 
+        # classifier = torch.Size([36, 1, 28, 28])
 
         return classifier
 
@@ -465,7 +469,7 @@ class SINet(nn.Module):
         dim3 = 96 + 4 * (chnn - 1)
 
         self.encoder = SINet_Encoder(config, classes, p, q, chnn)
-        # # load the encoder modules
+        # load the encoder modules
         if encoderFile != None:
             if torch.cuda.device_count() ==0:
                 self.encoder.load_state_dict(torch.load(encoderFile,map_location="cpu"))
@@ -520,10 +524,16 @@ class SINet(nn.Module):
 
         stage1_gate = (1-stage1_confidence).unsqueeze(1).expand(b, c, h, w)
 
+        # output2 = torch.Size([24, 48, 56, 56])
         Dnc_stage2_0 = self.level2_C(output2)  # 2h 2w
+        # Dnc_stage2_0 = torch.Size([24, 1, 56, 56])
+        
+        # stage1_gate = torch.Size([24, 1, 56, 56])
         Dnc_stage2 = self.bn_2(self.up(Dnc_stage2_0 * stage1_gate + (Dnc_stage1)))  # 4h 4w
+        # Dnc_stage2 = torch.Size([24, 1, 112, 112]) 
 
         classifier = self.classifier(Dnc_stage2)
+        # classifier = torch.Size([24, 1, 224, 224])
 
 
         return classifier

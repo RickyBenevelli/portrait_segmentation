@@ -5,6 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 
 RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
-RUN pip install visdom opencv-python
+RUN pip install visdom opencv-python micromind
 
 CMD ["bash"]

@@ -116,7 +116,7 @@ def train_edge(num_gpu, train_loader, model, criterion, optimizer, lovasz, epoch
         # set the grad to zero
         optimizer.zero_grad()
 
-
+        #print("[DEBUG] output shape:", output.shape, "target_var shape:", target_var.shape)
         loss = criterion(output, target_var)
         lossE = 0.5*criterion(output, edge_target_var)
 

@@ -79,6 +79,15 @@ if __name__ == '__main__':
         model = models.__dict__[train_config["Model"]](
             classes=train_config["num_classes"], p=train_config["p"], q=train_config["q"],
             chnn=train_config["chnn"])
+    elif train_config["Model"].startswith('Enc_XiSINet'):
+        model = models.__dict__[train_config["Model"]](
+            classes=train_config["num_classes"],
+            input_shape=data_config.get("input_shape", [3, data_config["w"], data_config["h"]]),
+            alpha=train_config.get("alpha", 1.0),
+            gamma=train_config.get("gamma", 4.0),
+            num_layers=train_config.get("num_layers", 5),
+            encoderFile=train_config.get("encoderFile", None)
+        )
 
     model_name = train_config["Model"]
 
@@ -338,6 +347,14 @@ if __name__ == '__main__':
             model = models.__dict__[model_name](
                 classes=train_config["num_classes"], p=train_config["p"], q=train_config["q"],
                 chnn=train_config["chnn"] , encoderFile= Max_name)
+        elif model_name.startswith('Dnc_XiSINet'):
+            model = models.__dict__[model_name](
+                classes=train_config["num_classes"],
+                input_shape=data_config.get("input_shape", [3, data_config["w"], data_config["h"]]),
+                alpha=train_config.get("alpha", 1.0),
+                gamma=train_config.get("gamma", 4.0),
+                num_layers=train_config.get("num_layers", 5),
+                encoderFile=train_config.get("encoderFile", None))
 
         else:
             print(model_name + " \t wrong model name")
