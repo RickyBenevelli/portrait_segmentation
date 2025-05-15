@@ -11,7 +11,7 @@
         "gamma": 4.0,
         "num_layers": 5,
         "encoderFile": null,
-        "epochs": 2,
+        "epochs": 300,
         "dnc_batch": 24,
         "loss": "Lovasz",
         "save_dir": "./result",

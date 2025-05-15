@@ -21,7 +21,7 @@
     "data_config": {
         "cash" : "./pickle_file/portraitAug.p",
         "dataset_name": "CVportrait",
-        "data_dir": "../../Link512DATA/",
+        "data_dir": "Link512DATA",
         "classes" : 2,
         "ignore_idx" : 255,
         "num_work" : 4,

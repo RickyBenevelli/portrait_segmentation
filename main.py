@@ -92,7 +92,7 @@ if __name__ == '__main__':
     model_name = train_config["Model"]
 
 
-    print(train_config["num_classes"])
+    print("num_classes: ", train_config["num_classes"])
     batch = torch.FloatTensor(1, 3, data_config["w"], data_config["h"])
     model_eval = add_flops_counting_methods(model)
     model_eval.eval().start_flops_count()

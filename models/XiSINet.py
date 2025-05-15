@@ -109,9 +109,12 @@ class XiSINet_Encoder(nn.Module):
             include_top=False,
             return_layers=[self.mid_layer_id]
         )
-        if encoderFile is not None:
-            loc = "cpu" if torch.cuda.device_count() == 0 else None
-            self.encoder_net.load_state_dict(torch.load(encoderFile, map_location=loc))
+        if encoderFile != None:
+            if torch.cuda.device_count() ==0:
+                self.encoder.load_state_dict(torch.load(encoderFile,map_location="cpu"))
+            else:
+                self.encoder.load_state_dict(torch.load(encoderFile))
+            print('Encoder loaded!')
 
         base_filters = 16
         num_filters = [int(2 ** (base_filters**0.5 + i)) for i in range(num_layers)]

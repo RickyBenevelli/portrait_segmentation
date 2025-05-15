@@ -277,7 +277,7 @@ class XiNet(nn.Module):
             int(2 ** (base_filters**0.5 + i)) for i in range(0, num_layers)
         ]
         skip_channels_num = int(base_filters * 2 * alpha)
-        print(f"[DEBUG] num_filters: {num_filters}")
+        #print(f"[DEBUG] num_filters: {num_filters}")
 
         for i in range(
             len(num_filters) - 2
@@ -338,7 +338,7 @@ class XiNet(nn.Module):
 
         if self.return_layers is not None:
             print(f"XiNet configured to return layers {self.return_layers}:")
-            print("[DEBUG] ", self._layers)
+            #print("[DEBUG] ", self._layers)
             for i in self.return_layers:
                 print(f"Layer {i} - {self._layers[i].__class__}")
 

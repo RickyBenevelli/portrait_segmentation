@@ -1,6 +1,6 @@
 services:
-  ext_portrait_segmentation:
-    image: ext_portrait_segmentation
+  portrait_segmentation:
+    image: portrait_segmentation
     build:
       context: .
       dockerfile: Dockerfile
