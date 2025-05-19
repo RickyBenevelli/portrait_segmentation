@@ -1,14 +1,13 @@
 """
-Code for XiNet (https://shorturl.at/mtHT0)
-
 Authors:
     - Francesco Paissan, 2023
     - Alberto Ancilotto, 2023
+    - Riccardo Benevelli, 2025
 """
 import torch
 import torch.nn as nn
 
-from typing import Union, Tuple, Optional, List
+from typing import Union, Tuple, Optional, List, Dict
 
 
 def autopad(k: int, p: Optional[int] = None):
@@ -228,9 +227,11 @@ class XiNet(nn.Module):
         When True, defines an MLP for classification.
     base_filters : int
         Number of base filters for the ConvBlock.
-    return_layers : Optional[List]
-        Ids of the layers to be returned after processing the foward
-        step.
+    min_feature_size : Optional[int]
+        Minimum feature map size before stopping downsampling. Default is 7.
+    return_blocks : Optional[List]
+        List of block indices to return.
+        Each block consists of a downsampling layer (if needed) and a regular layer.
 
     Example
     -------
@@ -249,15 +250,24 @@ class XiNet(nn.Module):
         num_classes=1000,
         include_top=False,
         base_filters: int = 16,
-        return_layers: Optional[List] = None,
+        min_feature_size: Optional[int] = 7,
+        return_blocks: Optional[List] = None,
     ):
         super().__init__()
 
         self._layers = nn.ModuleList([])
         self.input_shape = torch.Tensor(input_shape)
         self.include_top = include_top
-        self.return_layers = return_layers
+        self.return_blocks = return_blocks
+        
+        self.block_to_layer_map = {}
+        self.layer_to_block_map = {}
+        
         count_downsample = 0
+        current_layer_idx = 0
+        current_block_idx = 0
+
+        feature_size = [input_shape[1] // 2, input_shape[2] // 2]
 
         self.conv1 = nn.Sequential(
             nn.Conv2d(
@@ -277,25 +287,48 @@ class XiNet(nn.Module):
             int(2 ** (base_filters**0.5 + i)) for i in range(0, num_layers)
         ]
         skip_channels_num = int(base_filters * 2 * alpha)
-        #print(f"[DEBUG] num_filters: {num_filters}")
 
-        for i in range(
-            len(num_filters) - 2
-        ):  # Account for the last two layers separately
-            self._layers.append(
-                XiConv(
-                    int(num_filters[i] * alpha),
-                    int(num_filters[i + 1] * alpha),
-                    kernel_size=3,
-                    stride=1,
-                    pool=2,
-                    skip_tensor_in=(i != 0),
-                    skip_res=self.input_shape[1:] / (2**count_downsample),
-                    skip_channels=skip_channels_num,
-                    gamma=gamma,
+        for i in range(len(num_filters) - 2):  # Account for the last two layers separately
+            # Track the block index for this layer
+            self.block_to_layer_map[current_block_idx] = current_layer_idx
+            
+            need_downsampling = min(feature_size) > min_feature_size
+            
+            if need_downsampling:
+                self._layers.append(
+                    XiConv(
+                        int(num_filters[i] * alpha),
+                        int(num_filters[i + 1] * alpha),
+                        kernel_size=3,
+                        stride=1,
+                        pool=2,
+                        skip_tensor_in=(i != 0),
+                        skip_res=self.input_shape[1:] / (2**count_downsample),
+                        skip_channels=skip_channels_num,
+                        gamma=gamma,
+                    )
                 )
-            )
-            count_downsample += 1
+                self.layer_to_block_map[current_layer_idx] = current_block_idx
+                current_layer_idx += 1
+                count_downsample += 1
+                feature_size = [fs // 2 for fs in feature_size]
+            else:
+                self._layers.append(
+                    XiConv(
+                        int(num_filters[i] * alpha),
+                        int(num_filters[i + 1] * alpha),
+                        kernel_size=3,
+                        stride=1,
+                        pool=None,
+                        skip_tensor_in=(i != 0),
+                        skip_res=self.input_shape[1:] / (2**count_downsample),
+                        skip_channels=skip_channels_num,
+                        gamma=gamma,
+                    )
+                )
+                self.layer_to_block_map[current_layer_idx] = current_block_idx
+                current_layer_idx += 1
+            
             self._layers.append(
                 XiConv(
                     int(num_filters[i + 1] * alpha),
@@ -308,8 +341,12 @@ class XiNet(nn.Module):
                     gamma=gamma,
                 )
             )
+            self.layer_to_block_map[current_layer_idx] = current_block_idx
+            current_layer_idx += 1
+            current_block_idx += 1
 
-        # Adding the last two layers with attention=False
+        self.block_to_layer_map[current_block_idx] = current_layer_idx
+        
         self._layers.append(
             XiConv(
                 int(num_filters[-2] * alpha),
@@ -322,7 +359,9 @@ class XiNet(nn.Module):
                 attention=False,
             )
         )
-        # count_downsample += 1
+        self.layer_to_block_map[current_layer_idx] = current_block_idx
+        current_layer_idx += 1
+        
         self._layers.append(
             XiConv(
                 int(num_filters[-1] * alpha),
@@ -335,12 +374,27 @@ class XiNet(nn.Module):
                 attention=False,
             )
         )
-
-        if self.return_layers is not None:
-            print(f"XiNet configured to return layers {self.return_layers}:")
-            #print("[DEBUG] ", self._layers)
-            for i in self.return_layers:
-                print(f"Layer {i} - {self._layers[i].__class__}")
+        self.layer_to_block_map[current_layer_idx] = current_block_idx
+        
+        if self.return_blocks is not None:
+            print(f"XiNet configured to return blocks {self.return_blocks}:")
+            print(f"Block to layer mapping: {self.block_to_layer_map}")
+            
+            # Convert return_blocks to return_layers
+            self.return_layers = []
+            for block_idx in self.return_blocks:
+                if block_idx in self.block_to_layer_map:
+                    if block_idx < current_block_idx:
+                        last_layer_of_block = self.block_to_layer_map[block_idx + 1] - 1
+                    else:
+                        last_layer_of_block = current_layer_idx
+                    
+                    self.return_layers.append(last_layer_of_block)
+                    print(f"Block {block_idx} corresponds to layer {last_layer_of_block}")
+                else:
+                    print(f"Warning: Block {block_idx} not found in the network")
+        else:
+            self.return_layers = None
 
         self.input_shape = input_shape
         if self.include_top:
@@ -372,14 +426,13 @@ class XiNet(nn.Module):
             else:
                 x = layer([x, skip])
 
-            if self.return_layers is not None:
-                if layer_id in self.return_layers:
-                    ret.append(x)
+            if self.return_layers is not None and layer_id in self.return_layers:
+                ret.append(x)
 
         if self.include_top:
             x = self.classifier(x)
 
-        if self.return_layers is not None:
+        if self.return_blocks is not None:
             return x, ret
 
         return x

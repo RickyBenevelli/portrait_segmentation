@@ -1,17 +1,17 @@
 {
     "train_config": {
         "resume": "",
-        "Model": "Enc_XiSINet",
+        "Model": "Enc_PhiSINet",
         "learning_rate": 5e-4,
         "num_classes": 2,
         "p": 2,
         "q": 8,
         "chnn": 1,
-        "alpha": 0.70,
-        "gamma": 4,
+        "alpha": 0.7,
+        "beta": 1.0,
+        "t": 6.0,
         "num_layers": 4,
-        "min_feature_size": 28,
-        "skip_layer": 0,
+        "skip_layer": 3,
         "epochs": 400,
         "dnc_batch": 24,
         "loss": "Lovasz",
@@ -19,7 +19,8 @@
         "optim": "Adam",
         "lrsch": "multistep",
         "wd_tfmode": true,
-        "weight_decay": 2e-4
+        "weight_decay": 2e-4,
+        "stage1_W": null
     },
     "data_config": {
         "cash": "./pickle_file/portrait.p",
@@ -28,7 +29,7 @@
         "classes": 2,
         "ignore_idx": 255,
         "num_work": 4,
-        
+        "input_shape": [3, 224, 224],
         "Enc": true,
         "w": 224,
         "h": 224,

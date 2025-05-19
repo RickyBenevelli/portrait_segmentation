@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-#from micromind.networks import XiNet
-from .xinet import XiNet
+from .phinet import PhiNet
 
 BN_moment = 0.1
 
@@ -14,7 +13,6 @@ class CBR(nn.Module):
 
     def __init__(self, nIn, nOut, kSize, stride=1):
         '''
-
         :param nIn: number of input channels
         :param nOut: number of output channels
         :param kSize: kernel size
@@ -66,7 +64,6 @@ class C(nn.Module):
 
     def __init__(self, nIn, nOut, kSize, stride=1, group=1):
         '''
-
         :param nIn: number of input channels
         :param nOut: number of output channels
         :param kSize: kernel size
@@ -86,9 +83,9 @@ class C(nn.Module):
         return output
 
 
-class XiSINet_Encoder(nn.Module):
+class PhiSINet_Encoder(nn.Module):
     """
-    Encoder part of the XiSINet architecture, based on the modified XiNet implementation.
+    Encoder part of the PhiSINet architecture, based on the PhiNet implementation.
     
     Arguments
     ---------
@@ -98,44 +95,65 @@ class XiSINet_Encoder(nn.Module):
         Shape of the input tensor [channels, height, width].
     alpha: float
         Width multiplier.
-    gamma: float
-        Compression factor for XiNet.
+    beta: float
+        Depth multiplier for PhiNet.
+    t_zero: float
+        Expansion factor in bottleneck blocks for PhiNet.
     num_layers: int
-        Number of layers in the XiNet backbone.
-    min_feature_size: int
-        Minimum feature size before stopping downsampling.
+        Number of layers in the PhiNet backbone.
     skip_layer: int
-        Index of the middle block to extract features from.
+        Index of the layer to extract features from for skip connection.
     """
     def __init__(
         self,
         classes: int = 20,
         input_shape: list = [3, 224, 224],
         alpha: float = 1.0,
-        gamma: float = 4.0,
+        beta: float = 1.0,
+        t_zero: float = 6.0,
         num_layers: int = 5,
-        min_feature_size: int = 7,
-        skip_layer: int = 0
+        skip_layer: int = 3,
+        divisor: int = 1
     ):
         super().__init__()
         self.skip_layer = skip_layer
         
-        self.encoder = XiNet(
+        self.encoder = PhiNet(
             input_shape=input_shape,
-            alpha=alpha,
-            gamma=gamma,
             num_layers=num_layers,
+            alpha=alpha,
+            beta=beta,
+            t_zero=t_zero,
             include_top=False,
-            min_feature_size=min_feature_size,
-            return_blocks=[self.skip_layer]
+            return_layers=[self.skip_layer],
+            divisor=divisor
         )
-
-        base_filters = 16
-        num_filters = [int(2 ** (base_filters**0.5 + i)) for i in range(num_layers)]
-        self.dim2 = int(num_filters[self.skip_layer+1] * alpha)
-        self.dim3 = int(num_filters[-1] * alpha)
-
+        
+        base_filters = 48
+        b1_filters = 24
+        b2_filters = 48
+        
+        if skip_layer <= 3:
+            self.dim2 = _make_divisible(int(b1_filters * alpha), divisor=divisor)
+        else:
+            block_filters = b2_filters * (2 ** (skip_layer // 2 - 1))
+            self.dim2 = _make_divisible(int(block_filters * alpha), divisor=divisor)
+        
+        downsampling_layers = [5, 7]  # Default from PhiNet
+        block_filters = b2_filters
+        
+        doubles = 0
+        for i in range(4, num_layers + 1):
+            if i in downsampling_layers:
+                block_filters *= 2
+                doubles += 1
+        
+        self.dim3 = _make_divisible(int(block_filters * alpha), divisor=divisor)
+        
         self.classifier = nn.Conv2d(self.dim3, classes, 1, bias=False)
+        self.classes = classes
+        
+        print(f"Initialized classifier with input channels: {self.dim3}, output channels: {self.classes}")
         
         self.skip_layer_tensor = None
 
@@ -143,17 +161,16 @@ class XiSINet_Encoder(nn.Module):
         output, ret_blocks = self.encoder(x)
         
         self.skip_layer_tensor = ret_blocks[0]
-        
-        # Apply classification head
         classifier_output = self.classifier(output)
-        #print(f"DEBUG: output: {output.shape}, classifier_output: {classifier_output.shape}")
-        # output = torch.Size([36, 128, 28, 28], classifier_output = torch.Size([36, 1, 28, 28]
+        # print(f"DEBUG: output: {output.shape}, classifier_output: {classifier_output.shape}")
+        # output: torch.Size([36, 96, 14, 14]), classifier_output: torch.Size([36, 1, 14, 14])
+        
         return classifier_output
 
 
-class SINet_XiNet(nn.Module):
+class SINet_PhiNet(nn.Module):
     """
-    SINet architecture using the modified XiNet as the backbone.
+    SINet architecture using the PhiNet as the backbone.
     
     Arguments
     ---------
@@ -163,14 +180,14 @@ class SINet_XiNet(nn.Module):
         Shape of the input tensor [channels, height, width].
     alpha: float
         Width multiplier.
-    gamma: float
-        Compression factor for XiNet.
+    beta: float
+        Depth multiplier for PhiNet.
+    t_zero: float
+        Expansion factor in bottleneck blocks for PhiNet.
     num_layers: int
-        Number of layers in the XiNet backbone.
-    min_feature_size: int
-        Minimum feature size before stopping downsampling.
+        Number of layers in the PhiNet backbone.
     skip_layer: int
-        Index of the middle block to extract features from.
+        Index of the layer to extract features from for skip connection.
     encoderFile: str
         Path to pretrained encoder weights file.
     """
@@ -179,22 +196,24 @@ class SINet_XiNet(nn.Module):
         classes: int = 20,
         input_shape: list = [3, 224, 224],
         alpha: float = 1.0,
-        gamma: float = 4.0,
+        beta: float = 1.0,
+        t_zero: float = 6.0,
         num_layers: int = 5,
-        min_feature_size: int = 7,
-        skip_layer: int = 0,
-        encoderFile: str = None
+        skip_layer: int = 3,
+        encoderFile: str = None,
+        divisor: int = 1
     ):
         super().__init__()
-
-        self.encoder = XiSINet_Encoder(
+        
+        self.encoder = PhiSINet_Encoder(
             classes=classes,
             input_shape=input_shape,
             alpha=alpha,
-            gamma=gamma,
+            beta=beta,
+            t_zero=t_zero,
             num_layers=num_layers,
-            min_feature_size=min_feature_size,
-            skip_layer=skip_layer
+            skip_layer=skip_layer,
+            divisor=divisor
         )
         
         if encoderFile is not None:
@@ -203,14 +222,39 @@ class SINet_XiNet(nn.Module):
             else:
                 self.encoder.load_state_dict(torch.load(encoderFile))
             print('Encoder loaded!')
-
+        
+        base_filters = 48
+        b1_filters = 24
+        b2_filters = 48
+        
+        if skip_layer <= 3:
+            self.skip_dim = _make_divisible(int(b1_filters * alpha), divisor=divisor)
+        else:
+            block_filters = b2_filters * (2 ** (skip_layer // 2 - 1))
+            self.skip_dim = _make_divisible(int(block_filters * alpha), divisor=divisor)
+        
+        # Calculate encoder output dimensions
+        downsampling_layers = [5, 7]  # Default from PhiNet
+        block_filters = b2_filters
+        
+        doubles = 0
+        for i in range(4, num_layers + 1):
+            if i in downsampling_layers:
+                block_filters *= 2
+                doubles += 1
+        
+        self.enc_dim = _make_divisible(int(block_filters * alpha), divisor=divisor)
+        self.classes = classes
+        
+        # Decode components
         self.up = nn.UpsamplingBilinear2d(scale_factor=2)
         self.bn_3 = nn.BatchNorm2d(classes, eps=1e-3)
         
+        # Initialize the skip connection processing
         self.level2_C = nn.Sequential(
-            nn.Conv2d(self.encoder.dim2, classes, 1, bias=False),
-            nn.BatchNorm2d(classes, eps=1e-3),
-            nn.PReLU(classes)
+            nn.Conv2d(self.skip_dim, self.classes, 1, bias=False),
+            nn.BatchNorm2d(self.classes, eps=1e-3),
+            nn.PReLU(self.classes)
         )
         
         self.bn_2 = nn.BatchNorm2d(classes, eps=1e-3)
@@ -224,9 +268,9 @@ class SINet_XiNet(nn.Module):
         Enc_final = self.encoder(input)
         skip_layer_tensor = self.encoder.skip_layer_tensor
         
-        # First decoder stage
+        # First decoder stage - upsample encoder output
         Dnc_stage1 = self.bn_3(self.up(Enc_final))
-        
+
         # Calculate confidence map for gating
         confidence = torch.max(F.softmax(Dnc_stage1, dim=1), dim=1)[0]
         b, c, h, w = Dnc_stage1.shape
@@ -242,49 +286,77 @@ class SINet_XiNet(nn.Module):
         return classifier
 
 
-def Enc_XiSINet(
+
+def _make_divisible(v, divisor=8, min_value=None):
+    """
+    This function ensures that all layers have a channel number that is divisible by divisor.
+    
+    Arguments
+    ---------
+    v : int
+        The original number of channels.
+    divisor : int, optional
+        The divisor to ensure divisibility (default is 8).
+    min_value : int or None, optional
+        The minimum value for the divisible channels (default is None).
+        
+    Returns
+    -------
+    int
+        The adjusted number of channels.
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
+
+
+def Enc_PhiSINet(
     classes: int = 20,
     input_shape: list = [3, 224, 224],
     alpha: float = 1.0,
-    gamma: float = 4.0,
+    beta: float = 1.0,
+    t_zero: float = 6.0,
     num_layers: int = 5,
-    min_feature_size: int = 7,
-    skip_layer: int = 0
-) -> XiSINet_Encoder:
+    skip_layer: int = 3,
+) -> PhiSINet_Encoder:
     """
-    Factory function to create an XiSINet encoder.
+    Factory function to create a PhiSINet encoder.
     """
-    return XiSINet_Encoder(
+    return PhiSINet_Encoder(
         classes=classes, 
         input_shape=input_shape, 
         alpha=alpha, 
-        gamma=gamma, 
+        beta=beta,
+        t_zero=t_zero,
         num_layers=num_layers,
-        min_feature_size=min_feature_size,
-        skip_layer=skip_layer
+        skip_layer=skip_layer,
     )
 
 
-def Dnc_XiSINet(
+def Dnc_PhiSINet(
     classes: int = 20,
     input_shape: list = [3, 224, 224],
     alpha: float = 1.0,
-    gamma: float = 4.0,
+    beta: float = 1.0,
+    t_zero: float = 6.0,
     num_layers: int = 5,
-    min_feature_size: int = 7,
-    skip_layer: int = 0,
+    skip_layer: int = 3,
     encoderFile: str = None
-) -> SINet_XiNet:
+) -> SINet_PhiNet:
     """
-    Factory function to create a complete SINet with XiNet backbone.
+    Factory function to create a complete SINet with PhiNet backbone.
     """
-    return SINet_XiNet(
+    return SINet_PhiNet(
         classes=classes, 
         input_shape=input_shape, 
         alpha=alpha, 
-        gamma=gamma, 
+        beta=beta,
+        t_zero=t_zero,
         num_layers=num_layers,
-        min_feature_size=min_feature_size,
         skip_layer=skip_layer,
         encoderFile=encoderFile
     )

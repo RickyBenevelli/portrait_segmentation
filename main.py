@@ -86,7 +86,18 @@ if __name__ == '__main__':
             alpha=train_config.get("alpha", 1.0),
             gamma=train_config.get("gamma", 4.0),
             num_layers=train_config.get("num_layers", 5),
-            encoderFile=train_config.get("encoderFile", None)
+            min_feature_size=train_config.get("min_feature_size", 28),
+            skip_layer=train_config.get("skip_layer", 0)
+        )
+    elif train_config["Model"].startswith('Enc_PhiSINet'):
+        model = models.__dict__[train_config["Model"]](
+            classes=train_config["num_classes"],
+            input_shape=data_config.get("input_shape", [3, data_config["w"], data_config["h"]]),
+            alpha=train_config.get("alpha", 1.0),
+            beta=train_config.get("beta", 1.0),
+            t_zero=train_config.get("t", 6.0),
+            num_layers=train_config.get("num_layers", 5),
+            skip_layer=train_config.get("skip_layer", 3),
         )
 
     model_name = train_config["Model"]
@@ -354,7 +365,19 @@ if __name__ == '__main__':
                 alpha=train_config.get("alpha", 1.0),
                 gamma=train_config.get("gamma", 4.0),
                 num_layers=train_config.get("num_layers", 5),
-                encoderFile=train_config.get("encoderFile", None))
+                min_feature_size=train_config.get("min_feature_size", 28),
+                skip_layer=train_config.get("skip_layer", 0),
+                encoderFile=Max_name)
+        elif model_name.startswith('Dnc_PhiSINet'):
+            model = models.__dict__[model_name](
+                classes=train_config["num_classes"],
+                input_shape=data_config.get("input_shape", [3, data_config["w"], data_config["h"]]),
+                alpha=train_config.get("alpha", 1.0),
+                beta=train_config.get("beta", 1.0),
+                t_zero=train_config.get("t", 6.0),
+                num_layers=train_config.get("num_layers", 4),
+                skip_layer=train_config.get("skip_layer", 3),
+                encoderFile=Max_name)
 
         else:
             print(model_name + " \t wrong model name")
