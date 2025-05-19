@@ -25,6 +25,7 @@ from etc.utils import *
 from tqdm import tqdm
 from etc.Visualize_video import ExportVideo
 from etc.flops_counter import add_flops_counting_methods, flops_to_string, get_model_parameters_number
+from etc.report import save_training_report
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -607,6 +608,20 @@ if __name__ == '__main__':
 
     logger.close()
     print(" new max iou : " + Max_name + '\t' + str(Max_val_iou))
+    
+    model_info = {
+        'name': model_name,
+        'flops': flops_to_string(N_flop),
+        'params': get_model_parameters_number(model)
+    }
+
+    training_results = {
+        'epochs': train_config["epochs"],
+        'max_iou': Max_val_iou,
+        'best_model_path': Max_name
+    }
+
+    saved_path = save_training_report(train_config, model_info, training_results, data_config)
 
     print("========== TRAINING FINISHED ===========")
     mean = data['mean']
