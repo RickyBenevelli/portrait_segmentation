@@ -1,0 +1,32 @@
+name: Build Singularity SIF
+
+on:
+  workflow_dispatch:  # lo lanci manualmente dal pannello GitHub
+
+jobs:
+  build-sif:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libseccomp-dev pkg-config squashfs-tools cryptsetup curl
+          export VERSION=1.1.9  # versione di Apptainer
+          wget https://github.com/apptainer/apptainer/releases/download/v${VERSION}/apptainer_${VERSION}_amd64.deb
+          sudo dpkg -i apptainer_${VERSION}_amd64.deb
+          apptainer version
+
+      - name: Build SIF from definition file
+        run: |
+          mkdir sif_build
+          apptainer build sif_build/portrait_segmentation.sif cont.def
+
+      - name: Upload SIF artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: portrait_segmentation_sif
+          path: sif_build/portrait_segmentation.sif
