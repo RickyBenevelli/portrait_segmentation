@@ -605,7 +605,7 @@ if __name__ == '__main__':
         for tag, value in info.items():
             my_logger.scalar_summary(tag, value, epoch + 1)
 
-
+    torch.onnx.export(model, batch, this_savedir + '/model.onnx', verbose=False, opset_version=11)    
     logger.close()
     print(" new max iou : " + Max_name + '\t' + str(Max_val_iou))
     

@@ -1,0 +1,17 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
+
+%post
+    apt-get update && apt-get install -y ffmpeg libsm6 libxext6
+    pip install visdom opencv-python
+    mkdir /app
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export PYTHONUNBUFFERED=1
+    export PATH=/app:$PATH
+
+%runscript
+    cd /app
+    exec /bin/bash

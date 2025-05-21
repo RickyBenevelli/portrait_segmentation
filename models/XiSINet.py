@@ -144,7 +144,7 @@ class XiSINet_Encoder(nn.Module):
         
         self.skip_layer_tensor = ret_blocks[0]
         
-        # Apply classification head
+        output = F.interpolate(output, scale_factor=2, mode='bilinear', align_corners=False)        
         classifier_output = self.classifier(output)
         #print(f"DEBUG: output: {output.shape}, classifier_output: {classifier_output.shape}")
         # output = torch.Size([36, 128, 28, 28], classifier_output = torch.Size([36, 1, 28, 28]
