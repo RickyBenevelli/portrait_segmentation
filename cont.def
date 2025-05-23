@@ -3,7 +3,7 @@ From: pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
 
 %post
     apt-get update && apt-get install -y ffmpeg libsm6 libxext6
-    pip install visdom opencv-python
+    pip install visdom opencv-python torchinfo
     mkdir /app
 
 %environment
