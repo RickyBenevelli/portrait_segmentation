@@ -12,7 +12,7 @@
         "num_layers": 5,
         "min_feature_size": 14,
         "skip_layer": 0,
-        "epochs": 4,
+        "epochs": 400,
         "dnc_batch": 24,
         "loss": "Lovasz",
         "save_dir": "./result",

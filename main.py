@@ -36,6 +36,7 @@ if __name__ == '__main__':
     # parser.add_argument('-t', '--wd_tfmode', type=bool, default=True, help='tensorflow style train')
     # parser.add_argument('-w', '--weight_decay', type=float, default=2e-4, help='value for weight decay')
     parser.add_argument('-v', '--visualize', type=bool, default=False, help='visualize result image')
+    parser.add_argument('--suffix', type=str, default=None, help='custom suffix for save dir name')
 
     args = parser.parse_args()
     ############### setting framework ##########################################
@@ -62,6 +63,10 @@ if __name__ == '__main__':
 
     if not os.path.isdir(train_config['save_dir']):
         os.mkdir(train_config['save_dir'])
+        
+    total_start_time = time.time()
+    encoder_time = 0
+    decoder_time = 0
 
     print("Run : " + train_config["Model"])
     D_ratio=[]
@@ -145,10 +150,11 @@ if __name__ == '__main__':
             print("make DataParallel")
         model = model.cuda()
         print("Done")
-
+    else:
+        print("No gpu, use cpu")
     ###################################stage Enc setting ##############################################
     if (not args.decoder_only):
-        logger, this_savedir = info_setting(train_config['save_dir'], train_config["Model"], total_paramters, N_flop)
+        logger, this_savedir = info_setting(train_config['save_dir'], train_config["Model"], total_paramters, N_flop, args.suffix)
         logger.flush()
         logdir = this_savedir.split(train_config['save_dir'])[1]
         my_logger = Logger(8097, './logs/' + logdir, False)
@@ -338,10 +344,17 @@ if __name__ == '__main__':
         # save the model also
 
         print(" S1 max iou : " + Max_name + '\t' + str(Max_val_iou))
+        encoder_end_time = time.time()
+        encoder_time = encoder_end_time - encoder_start_time
+        hours, remainder = divmod(encoder_time, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        print(f"========== Encoder Training Completed in {int(hours)}h {int(minutes)}m {int(seconds)}s ==========")
 
         # exit(0)
         #########################################---Decoder setting---##################################################
-
+        
+        decoder_start_time = time.time()
+        
         print("get max iou file : " + Max_name)
         if model_name.startswith('Enc'):
             model_name = "Dnc" + train_config["Model"].split('Enc')[1]
@@ -605,9 +618,27 @@ if __name__ == '__main__':
         for tag, value in info.items():
             my_logger.scalar_summary(tag, value, epoch + 1)
 
-    torch.onnx.export(model, batch, this_savedir + '/model.onnx', verbose=False, opset_version=11)    
     logger.close()
     print(" new max iou : " + Max_name + '\t' + str(Max_val_iou))
+    
+    decoder_end_time = time.time()
+    decoder_time = decoder_end_time - decoder_start_time
+    total_time = time.time() - total_start_time
+    
+    hours_dec, remainder = divmod(decoder_time, 3600)
+    minutes_dec, seconds_dec = divmod(remainder, 60)
+    
+    hours_total, remainder = divmod(total_time, 3600)
+    minutes_total, seconds_total = divmod(remainder, 60)
+    
+    hours_enc, remainder = divmod(encoder_time, 3600)
+    minutes_enc, seconds_enc = divmod(remainder, 60)
+    
+    print("\n========== TRAINING TIME SUMMARY ==========")
+    print(f"Encoder Training Time: {int(hours_enc)}h {int(minutes_enc)}m {int(seconds_enc)}s")
+    print(f"Decoder Training Time: {int(hours_dec)}h {int(minutes_dec)}m {int(seconds_dec)}s")
+    print(f"Total Training Time: {int(hours_total)}h {int(minutes_total)}m {int(seconds_total)}s")
+    print("===========================================\n")
     
     model_info = {
         'name': model_name,
@@ -620,6 +651,15 @@ if __name__ == '__main__':
         'max_iou': Max_val_iou,
         'best_model_path': Max_name
     }
+    try:
+        model = model.cpu()
+        batch = batch.cpu()
+        model.eval()
+        torch.onnx.export(model, batch, os.path.join(this_savedir, 'model.onnx'), verbose=False, opset_version=11)
+        print("Exported to onnx")
+    except Exception as e:
+        print("Export to onnx failed")
+        print(e)
 
     saved_path = save_training_report(train_config, model_info, training_results, data_config)
 

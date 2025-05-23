@@ -236,10 +236,12 @@ def netParams(model):
     return total_paramters
 
 
-def info_setting(save_dir, model_name, Nparam, Flop):
+def info_setting(save_dir, model_name, Nparam, Flop, suffix=''):
     now = datetime.datetime.now()
     time_str = now.strftime("%m-%d_%H%M")
-    this_savedir = os.path.join(save_dir, model_name+time_str)
+    if suffix is None:
+        suffix = ''
+    this_savedir = os.path.join(save_dir, model_name+time_str+suffix)
     if not os.path.isdir(this_savedir):
         os.mkdir(this_savedir)
 
